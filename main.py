@@ -1,67 +1,123 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
+from fastapi import FastAPI, Depends, HTTPException
+from sqlalchemy.orm import Session
 
-app=FastAPI()
+from database import get_db
+from models import EmployeeDB
+from schemas import EmployeeCreate, EmployeeResponse
 
-class Employee(BaseModel):
-    id:int
-    name:str
-    age:int
+app = FastAPI()
 
-employee_list = []
 
 @app.get("/")
-async def Home():
-    return {'message' : "Working fine"}
+def home():
+    return {"message": "FastAPI PostgreSQL Backend"}
 
-@app.get("/api/employees")
-def get_employees():
-    return {
-        "success": True,
-        "employees": employee_list
-    }    
 
+# POST - Add employee
 @app.post("/api/add_employee")
-def add_employee(employee: Employee):
-    employee.id = len(employee_list) + 1
-    employee_list.append(employee)
-    return {
-        "success": True,
-        "message": "Employee added successfully"
-    }             
+def add_employee(
+    employee: EmployeeCreate,
+    db: Session = Depends(get_db)
+):
 
-@app.delete("/api/delete_employee/{employee_id}")
-def delete_employee(employee_id: int):
-    for employee in employee_list:
-        if employee.id == employee_id:
-            employee_list.remove(employee)
-            return {
-                "success": True,
-                "message": "Employee deleted successfully"
-            }
-    return {
-        "success": False,
-        "message": "Employee not found"
-    }
-
-@app.put("/api/update_employee/{employee_id}")
-def update_employee(employee_id: int, employee: Employee):
-
-    for index, existing_employee in enumerate(employee_list):
-
-        if existing_employee.id == employee_id:
-
-            employee.id = employee_id
-            employee_list[index] = employee
-
-            return {
-                "success": True,
-                "message": "Employee updated successfully",
-                "employee": employee
-            }
-
-    raise HTTPException(
-        status_code=404,
-        detail="Employee not found"
+    new_employee = EmployeeDB(
+        name=employee.name,
+        email=employee.email,
+        role=employee.role
     )
 
+    db.add(new_employee)
+    db.commit()
+    db.refresh(new_employee)
+
+    return {
+        "success": True,
+        "message": "Employee added successfully",
+        "employee": new_employee
+    }
+
+
+# GET - Get all employees
+@app.get("/api/get_employees")
+def get_employees(db: Session = Depends(get_db)):
+
+    employees = db.query(EmployeeDB).all()
+
+    return employees
+
+
+# GET - Get one employee
+@app.get("/api/get_employee/{employee_id}")
+def get_employee(
+    employee_id: int,
+    db: Session = Depends(get_db)
+):
+
+    employee = db.query(EmployeeDB).filter(
+        EmployeeDB.id == employee_id
+    ).first()
+
+    if not employee:
+        raise HTTPException(
+            status_code=404,
+            detail="Employee not found"
+        )
+
+    return employee
+
+
+# PUT - Update employee
+@app.put("/api/update_employee/{employee_id}")
+def update_employee(
+    employee_id: int,
+    employee: EmployeeCreate,
+    db: Session = Depends(get_db)
+):
+
+    existing_employee = db.query(EmployeeDB).filter(
+        EmployeeDB.id == employee_id
+    ).first()
+
+    if not existing_employee:
+        raise HTTPException(
+            status_code=404,
+            detail="Employee not found"
+        )
+
+    existing_employee.name = employee.name
+    existing_employee.email = employee.email
+    existing_employee.role = employee.role
+
+    db.commit()
+    db.refresh(existing_employee)
+
+    return {
+        "success": True,
+        "message": "Employee updated successfully"
+    }
+
+
+# DELETE - Delete employee
+@app.delete("/api/delete_employee/{employee_id}")
+def delete_employee(
+    employee_id: int,
+    db: Session = Depends(get_db)
+):
+
+    employee = db.query(EmployeeDB).filter(
+        EmployeeDB.id == employee_id
+    ).first()
+
+    if not employee:
+        raise HTTPException(
+            status_code=404,
+            detail="Employee not found"
+        )
+
+    db.delete(employee)
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "Employee deleted successfully"
+    }
