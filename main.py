@@ -10,12 +10,19 @@ from contextlib import asynccontextmanager
 
 
 
-app = FastAPI(lifespan=FastAPI)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    print("Creating database tables...")
+
     Base.metadata.create_all(bind=engine)
+
+    print("Database tables created successfully!")
+
     yield
+
+app = FastAPI(lifespan=lifespan)
 
 @app.get("/")
 def home():
