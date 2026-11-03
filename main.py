@@ -6,14 +6,16 @@ from models import EmployeeDB
 from schemas import EmployeeCreate, EmployeeResponse
 
 from database import engine, Base
+from contextlib import asynccontextmanager
 
 
 
 app = FastAPI()
 
-@app.on_event("startup")
-def create_tables():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    yield
 
 @app.get("/")
 def home():
