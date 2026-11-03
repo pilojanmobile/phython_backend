@@ -5,8 +5,15 @@ from database import get_db
 from models import EmployeeDB
 from schemas import EmployeeCreate, EmployeeResponse
 
+from database import engine, Base
+
+
+
 app = FastAPI()
 
+@app.on_event("startup")
+def create_tables():
+    Base.metadata.create_all(bind=engine)
 
 @app.get("/")
 def home():
