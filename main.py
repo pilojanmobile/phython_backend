@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 
 
 
-app = FastAPI()
+app = FastAPI(lifespan=FastAPI)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
